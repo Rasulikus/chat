@@ -1,0 +1,183 @@
+basePath: /
+definitions:
+  http.CreateRoomReq:
+    properties:
+      name:
+        maxLength: 30
+        minLength: 3
+        type: string
+      password:
+        maxLength: 30
+        type: string
+    required:
+    - name
+    type: object
+  model.PublicError:
+    properties:
+      code:
+        type: string
+      details: {}
+      message:
+        type: string
+    type: object
+  model.Room:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      has_password:
+        type: boolean
+      id:
+        type: integer
+      last_active_at:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Simple chat service with rooms and WebSocket messaging.
+  title: Chat API
+  version: "1.0"
+paths:
+  /rooms:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of rooms with optional ordering and cursor-based
+        pagination.
+      parameters:
+      - description: Maximum number of rooms to return (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: Return rooms with IDs less than this value (cursor pagination)
+        in: query
+        name: before_id
+        type: integer
+      - description: Ordering key
+        enum:
+        - created_at desc
+        - created_at asc
+        - last_activity_at desc
+        - last_activity_at asc
+        - id desc
+        - id asc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Room'
+            type: array
+        "400":
+          description: invalid query parameters
+          schema:
+            $ref: '#/definitions/model.PublicError'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/model.PublicError'
+      summary: List rooms
+      tags:
+      - rooms
+    post:
+      consumes:
+      - application/json
+      description: Creates a new chat room with an optional password.
+      parameters:
+      - description: Room creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.CreateRoomReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Room'
+        "400":
+          description: invalid request or validation error
+          schema:
+            $ref: '#/definitions/model.PublicError'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/model.PublicError'
+      summary: Create a new room
+      tags:
+      - rooms
+  /rooms/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns a single room by its numeric identifier.
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Room'
+        "400":
+          description: invalid room ID
+          schema:
+            $ref: '#/definitions/model.PublicError'
+        "404":
+          description: room not found
+          schema:
+            $ref: '#/definitions/model.PublicError'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/model.PublicError'
+      summary: Get room by ID
+      tags:
+      - rooms
+  /ws:
+    get:
+      description: |-
+        Upgrades the HTTP connection to a WebSocket for real-time chat.
+
+        WebSocket message protocol (JSON):
+        Incoming events:
+        - type: "join" | "message" | "load_history"
+        - room_id: number (for "join")
+        - nick: string (for "join")
+        - password: string (for "join")
+        - text: string (for "message")
+        - before_id: number (for "load_history")
+
+        Outgoing events:
+        - type: "message" | "history" | "join" | "error"
+        - room_id: number
+        - nick: string
+        - message: Message (for "message")
+        - messages: Message[] (for "load_history")
+        - text: string (for "error")
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching Protocols
+      summary: WebSocket endpoint
+      tags:
+      - ws
+swagger: "2.0"

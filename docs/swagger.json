@@ -1,0 +1,246 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Simple chat service with rooms and WebSocket messaging.",
+        "title": "Chat API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/rooms": {
+            "get": {
+                "description": "Returns a paginated list of rooms with optional ordering and cursor-based pagination.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rooms"
+                ],
+                "summary": "List rooms",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of rooms to return (1-100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return rooms with IDs less than this value (cursor pagination)",
+                        "name": "before_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "created_at desc",
+                            "created_at asc",
+                            "last_activity_at desc",
+                            "last_activity_at asc",
+                            "id desc",
+                            "id asc"
+                        ],
+                        "type": "string",
+                        "description": "Ordering key",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Room"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid query parameters",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new chat room with an optional password.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rooms"
+                ],
+                "summary": "Create a new room",
+                "parameters": [
+                    {
+                        "description": "Room creation payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/http.CreateRoomReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid request or validation error",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    }
+                }
+            }
+        },
+        "/rooms/{id}": {
+            "get": {
+                "description": "Returns a single room by its numeric identifier.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rooms"
+                ],
+                "summary": "Get room by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Room ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid room ID",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    },
+                    "404": {
+                        "description": "room not found",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/model.PublicError"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws": {
+            "get": {
+                "description": "Upgrades the HTTP connection to a WebSocket for real-time chat.\n\nWebSocket message protocol (JSON):\nIncoming events:\n- type: \"join\" | \"message\" | \"load_history\"\n- room_id: number (for \"join\")\n- nick: string (for \"join\")\n- password: string (for \"join\")\n- text: string (for \"message\")\n- before_id: number (for \"load_history\")\n\nOutgoing events:\n- type: \"message\" | \"history\" | \"join\" | \"error\"\n- room_id: number\n- nick: string\n- message: Message (for \"message\")\n- messages: Message[] (for \"load_history\")\n- text: string (for \"error\")",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ws"
+                ],
+                "summary": "WebSocket endpoint",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "http.CreateRoomReq": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 30,
+                    "minLength": 3
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 30
+                }
+            }
+        },
+        "model.PublicError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "details": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Room": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "has_password": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_active_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
