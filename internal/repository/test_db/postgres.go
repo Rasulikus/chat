@@ -45,6 +45,8 @@ func DB() *bun.DB {
 }
 
 func newClient(cfg *config.DBConfig) (*bun.DB, error) {
+	EnsureTestDatabase(cfg)
+
 	testDSN = cfg.PostgresURL()
 	// Open a PostgreSQL database
 	sqlDB := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(testDSN)))
@@ -58,6 +60,36 @@ func newClient(cfg *config.DBConfig) (*bun.DB, error) {
 	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 
 	return db, nil
+}
+
+func EnsureTestDatabase(cfg *config.DBConfig) {
+	adminCfg := *cfg
+	adminCfg.Name = "postgres"
+
+	adminDB := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(adminCfg.PostgresURL())))
+	if err := adminDB.Ping(); err != nil {
+		log.Fatalf("ping admin db: %v", err)
+	}
+	defer adminDB.Close()
+
+	if err := adminDB.Ping(); err != nil {
+		log.Fatalf("ping admin db: %v", err)
+	}
+
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1);`
+	if err := adminDB.QueryRow(query, cfg.Name).Scan(&exists); err != nil {
+		log.Fatalf("check database exists: %v", err)
+	}
+
+	if exists {
+		return
+	}
+
+	createSQL := fmt.Sprintf(`CREATE DATABASE %s`, cfg.Name)
+	if _, err := adminDB.Exec(createSQL); err != nil {
+		log.Fatalf("create database %s: %v", cfg.Name, err)
+	}
 }
 
 func CloseDB() {
